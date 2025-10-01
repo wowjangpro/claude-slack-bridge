@@ -1,7 +1,6 @@
 import { App } from '@slack/bolt';
 import { config } from 'dotenv';
 import { ClaudeSessionManager } from './claude-session-manager';
-import { SlackMCPClient } from './slack-mcp-client';
 
 config();
 
@@ -17,8 +16,6 @@ const claudeManager = new ClaudeSessionManager(
   process.env.WORKSPACE_DIR || process.cwd(),
   process.env.CLAUDE_PATH || 'claude'
 );
-
-const slackMCP = new SlackMCPClient();
 
 // Claude 응답을 Slack으로 전달
 claudeManager.on('message', async (channelId: string, message: any) => {
