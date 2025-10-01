@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "morphllm-fast-apply": {
+      "command": "npx",
+      "args": [
+        "@morph-llm/morph-fast-apply",
+        "/home/"
+      ],
+      "env": {
+        "MORPH_API_KEY": "",
+        "ALL_TOOLS": "true"
+      }
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest"]
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://localhost:13080/sse",
+        "--header",
+        "Authorization: Bearer ${SLACK_MCP_API_KEY}"
+      ],
+      "env": {
+        "SLACK_MCP_API_KEY": "JenieL-cc-slack-mcp-secret-2012"
+      }
+    }
+  }
+} 
