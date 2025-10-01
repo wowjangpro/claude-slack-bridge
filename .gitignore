@@ -32,3 +32,10 @@ Thumbs.db
 # 임시 파일
 *.tmp
 *.temp
+
+.bmad-core/
+.claude/
+.cursor/
+.gemini/
+.vscode/
+.idea/
