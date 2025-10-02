@@ -8,8 +8,10 @@ Slack에서 Claude Code CLI와 실시간으로 대화할 수 있는 브리지 �
 - **세션 유지**: 이전 대화 내용을 기억하는 연속적인 대화 세션
 - **파일 시스템 접근**: Claude가 실제 프로젝트 파일을 읽고 수정
 - **채널 및 DM 지원**: 공개/비공개 채널, 1대1 DM 모두 지원
+- **스트리밍 응답**: Claude의 실시간 작업 진행 상황 표시
 - **진행 상황 알림**: 긴 작업 시 30초마다 대기 상황 업데이트
-- **유연한 세션 제어**: `-c` 접두사로 새 세션 시작 가능
+- **유연한 세션 제어**: `-clear` 접두사로 새 세션 시작 가능
+- **사용자 액세스 제어**: 허용된 사용자/채널만 봇 사용 가능
 
 ## 작동 방식
 
@@ -130,6 +132,10 @@ SLACK_APP_TOKEN=xapp-your-app-token
 SLACK_SIGNING_SECRET=your-signing-secret
 BOT_USER_ID=U09J01W1PCN
 
+# 허용된 사용자 ID 목록 (필수, 쉼표로 구분)
+# 사용자 ID 또는 DM 채널 ID 사용 가능
+ALLOWED_USER_IDS=U12345ABC,D67890XYZ
+
 # Workspace 설정
 WORKSPACE_DIR=/path/to/your/workspace
 ```
@@ -181,11 +187,27 @@ nohup npm start > bridge.log 2>&1 &
 → "철수라고 하셨습니다" (기억함)
 ```
 
-**새 세션 시작** (`-c` 접두사):
+**새 세션 시작** (`-clear` 접두사):
 ```
-@Claude -c 내 이름은 영수야
+@Claude -clear 내 이름은 영수야
 @Claude 내 이름 뭐였지?
 → "영수라고 하셨습니다" (새로운 컨텍스트)
+```
+
+### 실시간 진행 상황
+
+Claude가 작업을 수행하면 실시간으로 Slack에 표시됩니다:
+
+```
+🔵 세션 시작
+• 세션 ID: a1b2c3d4...
+• 모델: claude-sonnet-4
+• 작업 디렉토리: /workspace
+
+🔧 도구 사용: Read
+입력: {"file_path": "/workspace/package.json"}
+
+package.json 파일을 확인했습니다...
 ```
 
 ### 긴 작업 처리
@@ -219,8 +241,9 @@ claude-slack-bridge/
 
 **claude-session-manager.ts** - 세션 관리자
 - 사용자별 Claude CLI 프로세스 실행
-- `claude -p -c --permission-mode bypassPermissions` 명령 사용
-- stdin/stdout을 통한 입출력 처리
+- `claude -p -c --permission-mode bypassPermissions --verbose --output-format stream-json` 명령 사용
+- 실시간 JSON 스트리밍 파싱
+- 세션 초기화, 도구 사용, 텍스트 응답 이벤트 발생
 - 타임아웃 및 대기 메시지 관리
 
 ## 문제 해결
@@ -269,6 +292,9 @@ echo "1+1?" | claude -p
 - `SLACK_BOT_TOKEN`과 `SLACK_APP_TOKEN`을 안전하게 보관하세요
 - `--permission-mode bypassPermissions` 플래그는 신뢰할 수 있는 환경에서만 사용하세요
 - 프로덕션 환경에서는 워크스페이스 디렉토리 접근을 제한하세요
+- **`ALLOWED_USER_IDS`를 반드시 설정**하여 허용된 사용자만 봇에 접근하도록 제한하세요
+  - 사용자 ID (예: `U12345ABC`) 또는 DM 채널 ID (예: `D67890XYZ`) 사용 가능
+  - 여러 사용자 허용 시 쉼표로 구분: `ALLOWED_USER_IDS=U12345,D67890,U11111`
 
 ## 라이선스
 
