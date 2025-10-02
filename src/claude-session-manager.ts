@@ -187,18 +187,6 @@ export class ClaudeSessionManager extends EventEmitter {
             if (json.subtype === 'success' && json.result) {
               console.log(`[최종 결과] ${json.result.substring(0, 100)}...`);
 
-              // 스트리밍으로 이미 전송된 내용과 최종 결과 비교
-              const allStreamedText = streamedTexts.join('\n');
-              const finalResult = json.result.trim();
-
-              // 최종 결과가 스트리밍 내용과 다르면 전송
-              if (finalResult && finalResult !== allStreamedText) {
-                this.emit('message', userId, {
-                  type: 'text',
-                  content: `✅ 완료:\n${finalResult}`
-                });
-              }
-
               // 작업 완료 메시지 전송
               this.emit('message', userId, {
                 type: 'text',
