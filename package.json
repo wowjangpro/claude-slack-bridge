@@ -7,6 +7,12 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop claude-slack-bridge",
+    "pm2:restart": "pm2 restart claude-slack-bridge",
+    "pm2:delete": "pm2 delete claude-slack-bridge",
+    "pm2:logs": "pm2 logs claude-slack-bridge",
+    "pm2:monit": "pm2 monit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -19,7 +25,8 @@
   "license": "MIT",
   "dependencies": {
     "@slack/bolt": "^4.2.0",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "pm2": "^6.0.13"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
