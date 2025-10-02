@@ -198,6 +198,12 @@ export class ClaudeSessionManager extends EventEmitter {
                   content: `✅ 완료:\n${finalResult}`
                 });
               }
+
+              // 작업 완료 메시지 전송
+              this.emit('message', userId, {
+                type: 'text',
+                content: '✅ 작업 완료'
+              });
             } else if (json.subtype === 'error') {
               console.error(`[Claude 에러] ${json.error || 'Unknown error'}`);
               this.emit('error', userId, json.error || 'Unknown error');
