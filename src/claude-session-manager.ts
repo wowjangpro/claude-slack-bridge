@@ -17,7 +17,7 @@ export class ClaudeSessionManager extends EventEmitter {
   }
 
   /**
-   * Claude에게 메시지 전송 (stdin 방식)
+   * Claude에게 메시지 전송 (스트리밍 방식)
    */
   sendMessage(userId: string, message: string): void {
     console.log(`[메시지 전송] User ${userId}: ${message.substring(0, 50)}...`);
@@ -30,23 +30,20 @@ export class ClaudeSessionManager extends EventEmitter {
       this.activeProcesses.delete(userId);
     }
 
-    // 메시지에서 -c 옵션 확인 및 제거
+    // 메시지에서 -clear 옵션 확인 및 제거
     let actualMessage = message;
-    let useContinue = true; // 기본값: 세션 유지
+    let useContinue = true; // 기본값: 세션 유지 (-c 사용)
 
-    if (message.trim().startsWith('-c ')) {
-      useContinue = false; // -c 메시지가 있으면 새로 시작
-      actualMessage = message.trim().substring(3).trim();
-      console.log(`[새 세션 모드] -c 옵션 감지됨 (세션 초기화)`);
+    if (message.trim().startsWith('-clear ')) {
+      useContinue = false; // -clear 메시지가 있으면 새로 시작 (-c 사용 안 함)
+      actualMessage = message.trim().substring(7).trim();
+      console.log(`[새 세션 모드] -clear 옵션 감지됨 (세션 초기화)`);
     }
 
-    // 로그인 쉘을 통해 claude 실행 (인증 정보 자동 사용)
-    // -p: print 모드 (비대화형)
-    // -c: continue 모드 (기본값, 메시지에 -c가 있으면 사용하지 않음)
-    // --permission-mode bypassPermissions: 권한 확인 생략
+    // --verbose --output-format stream-json 옵션 추가
     const claudeOptions = useContinue
-      ? 'claude -p -c --permission-mode bypassPermissions'
-      : 'claude -p --permission-mode bypassPermissions';
+      ? 'claude -p -c --permission-mode bypassPermissions --verbose --output-format stream-json'
+      : 'claude -p --permission-mode bypassPermissions --verbose --output-format stream-json';
     const command = `echo ${JSON.stringify(actualMessage)} | ${claudeOptions}`;
 
     console.log(`[명령 실행] ${command.substring(0, 80)}...`);
@@ -64,9 +61,9 @@ export class ClaudeSessionManager extends EventEmitter {
     // 프로세스 저장
     this.activeProcesses.set(userId, claudeProcess);
 
-    let stdout = '';
-    let stderr = '';
+    let buffer = '';
     let hasResponded = false;
+    let streamedTexts: string[] = []; // 스트리밍된 텍스트 저장
 
     // 1시간 타임아웃 설정
     const timeout = setTimeout(() => {
@@ -90,34 +87,83 @@ export class ClaudeSessionManager extends EventEmitter {
       }
     }, 30000);
 
+    // 스트리밍 JSON 파싱
     claudeProcess.stdout.on('data', (data: Buffer) => {
-      const text = data.toString();
-      stdout += text;
-      console.log(`[stdout 수신] ${text}`);
+      buffer += data.toString();
+
+      // 줄 단위로 파싱
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // 마지막 불완전한 줄은 버퍼에 보관
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+
+        try {
+          const json = JSON.parse(line);
+          console.log(`[JSON 수신] Type: ${json.type}, Subtype: ${json.subtype || 'N/A'}`);
+
+          // assistant 메시지 처리
+          if (json.type === 'assistant' && json.message?.content) {
+            for (const content of json.message.content) {
+              if (content.type === 'text' && content.text) {
+                console.log(`[스트리밍 텍스트] ${content.text.substring(0, 100)}...`);
+                streamedTexts.push(content.text);
+                this.emit('stream', userId, content.text);
+              } else if (content.type === 'tool_use') {
+                console.log(`[도구 사용] ${content.name}`);
+                this.emit('tool_use', userId, content.name, content.input);
+              }
+            }
+          }
+
+          // 최종 결과 처리
+          if (json.type === 'result') {
+            hasResponded = true;
+            clearTimeout(timeout);
+            clearInterval(waitInterval);
+
+            if (json.subtype === 'success' && json.result) {
+              console.log(`[최종 결과] ${json.result.substring(0, 100)}...`);
+
+              // 스트리밍으로 이미 전송된 내용과 최종 결과 비교
+              const allStreamedText = streamedTexts.join('\n');
+              const finalResult = json.result.trim();
+
+              // 최종 결과가 스트리밍 내용과 다르면 전송
+              if (finalResult && finalResult !== allStreamedText) {
+                this.emit('message', userId, {
+                  type: 'text',
+                  content: `✅ 완료:\n${finalResult}`
+                });
+              }
+            } else if (json.subtype === 'error') {
+              console.error(`[Claude 에러] ${json.error || 'Unknown error'}`);
+              this.emit('error', userId, json.error || 'Unknown error');
+            }
+          }
+
+        } catch (e) {
+          console.log(`[JSON 파싱 실패] ${line.substring(0, 100)}`);
+        }
+      }
     });
 
     claudeProcess.stderr.on('data', (data: Buffer) => {
       const text = data.toString();
-      stderr += text;
-      console.log(`[stderr 수신] ${text}`);
+      console.log(`[stderr] ${text}`);
     });
 
     claudeProcess.on('close', (code: number) => {
       clearTimeout(timeout);
       clearInterval(waitInterval);
       this.activeProcesses.delete(userId);
-      if (hasResponded) return;
-      hasResponded = true;
 
-      if (code === 0 && stdout) {
-        console.log(`[Claude 응답] User ${userId}: ${stdout.substring(0, 100)}...`);
-        this.emit('message', userId, {
-          type: 'text',
-          content: stdout.trim()
-        });
-      } else {
-        console.error(`[Claude 에러] User ${userId}: ${stderr || 'Exit code: ' + code}`);
-        this.emit('error', userId, stderr || `Process exited with code ${code}`);
+      if (!hasResponded) {
+        hasResponded = true;
+        if (code !== 0) {
+          console.error(`[프로세스 종료] User ${userId}: Exit code ${code}`);
+          this.emit('error', userId, `Process exited with code ${code}`);
+        }
       }
     });
 
@@ -136,20 +182,27 @@ export class ClaudeSessionManager extends EventEmitter {
    * 활성 세션 수 (호환성 유지)
    */
   getActiveSessionCount(): number {
-    return 0; // -p -c 방식은 상태 없음
+    return this.activeProcesses.size;
   }
 
   /**
-   * 세션 종료 (호환성 유지)
+   * 세션 종료
    */
   closeSession(userId: string): void {
-    // -p -c 방식은 세션이 없음
+    const process = this.activeProcesses.get(userId);
+    if (process) {
+      process.kill('SIGTERM');
+      this.activeProcesses.delete(userId);
+    }
   }
 
   /**
-   * 모든 세션 종료 (호환성 유지)
+   * 모든 세션 종료
    */
   closeAllSessions(): void {
-    // -p -c 방식은 세션이 없음
+    for (const [userId, process] of this.activeProcesses) {
+      process.kill('SIGTERM');
+    }
+    this.activeProcesses.clear();
   }
 }

@@ -77,6 +77,36 @@ claudeManager.on('waiting', async (channelId: string, waitMsg: string) => {
   }
 });
 
+// Claude 스트리밍 응답을 Slack으로 전달
+claudeManager.on('stream', async (channelId: string, text: string) => {
+  console.log(`[스트리밍] Channel ${channelId}: ${text.substring(0, 100)}...`);
+
+  try {
+    await app.client.chat.postMessage({
+      token: process.env.SLACK_BOT_TOKEN,
+      channel: channelId,
+      text: text
+    });
+  } catch (error) {
+    console.error('[Slack 전송 오류]:', error);
+  }
+});
+
+// Claude 도구 사용 알림을 Slack으로 전달
+claudeManager.on('tool_use', async (channelId: string, toolName: string, toolInput: any) => {
+  console.log(`[도구 사용] Channel ${channelId}: ${toolName}`);
+
+  try {
+    await app.client.chat.postMessage({
+      token: process.env.SLACK_BOT_TOKEN,
+      channel: channelId,
+      text: `🔧 도구 사용중: ${toolName}`
+    });
+  } catch (error) {
+    console.error('[Slack 전송 오류]:', error);
+  }
+});
+
 // Slack 메시지 수신
 app.message(async ({ message, say }) => {
   // 봇 자신의 메시지는 무시
