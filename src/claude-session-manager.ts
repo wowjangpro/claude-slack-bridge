@@ -6,8 +6,14 @@ interface ClaudeMessage {
   content: string;
 }
 
+interface ProcessInfo {
+  process: ChildProcess;
+  timeout?: NodeJS.Timeout;
+  waitInterval?: NodeJS.Timeout;
+}
+
 export class ClaudeSessionManager extends EventEmitter {
-  private activeProcesses: Map<string, ChildProcess> = new Map();
+  private activeProcesses: Map<string, ProcessInfo> = new Map();
 
   constructor(
     private workspaceDir: string = process.cwd(),
@@ -22,11 +28,46 @@ export class ClaudeSessionManager extends EventEmitter {
   sendMessage(userId: string, message: string): void {
     console.log(`[메시지 전송] User ${userId}: ${message.substring(0, 50)}...`);
 
+    // 중지 명령어 처리
+    const trimmedMessage = message.trim().toLowerCase();
+    if (trimmedMessage === '중지' || trimmedMessage === 'stop' || trimmedMessage === '그만') {
+      const processInfo = this.activeProcesses.get(userId);
+      if (processInfo) {
+        console.log(`[수동 중지] User ${userId}: 작업 중단`);
+
+        // 타이머 정리
+        if (processInfo.timeout) clearTimeout(processInfo.timeout);
+        if (processInfo.waitInterval) clearInterval(processInfo.waitInterval);
+
+        // 모든 리스너 제거
+        processInfo.process.stdout?.removeAllListeners();
+        processInfo.process.stderr?.removeAllListeners();
+        processInfo.process.removeAllListeners();
+
+        // 프로세스 강제 종료
+        processInfo.process.kill('SIGKILL');
+        this.activeProcesses.delete(userId);
+
+        this.emit('message', userId, {
+          type: 'text',
+          content: '✅ 작업이 중지되었습니다.'
+        });
+      } else {
+        this.emit('message', userId, {
+          type: 'text',
+          content: 'ℹ️ 실행 중인 작업이 없습니다.'
+        });
+      }
+      return;
+    }
+
     // 이전 프로세스가 있으면 종료
-    const existingProcess = this.activeProcesses.get(userId);
-    if (existingProcess) {
+    const processInfo = this.activeProcesses.get(userId);
+    if (processInfo) {
       console.log(`[프로세스 종료] User ${userId}: 이전 요청 중단`);
-      existingProcess.kill('SIGTERM');
+      if (processInfo.timeout) clearTimeout(processInfo.timeout);
+      if (processInfo.waitInterval) clearInterval(processInfo.waitInterval);
+      processInfo.process.kill('SIGTERM');
       this.activeProcesses.delete(userId);
     }
 
@@ -58,9 +99,6 @@ export class ClaudeSessionManager extends EventEmitter {
       }
     });
 
-    // 프로세스 저장
-    this.activeProcesses.set(userId, claudeProcess);
-
     let buffer = '';
     let hasResponded = false;
     let streamedTexts: string[] = []; // 스트리밍된 텍스트 저장
@@ -86,6 +124,13 @@ export class ClaudeSessionManager extends EventEmitter {
         clearInterval(waitInterval);
       }
     }, 30000);
+
+    // 프로세스 정보 저장 (타이머 포함)
+    this.activeProcesses.set(userId, {
+      process: claudeProcess,
+      timeout,
+      waitInterval
+    });
 
     // 스트리밍 JSON 파싱
     claudeProcess.stdout.on('data', (data: Buffer) => {
@@ -206,9 +251,11 @@ export class ClaudeSessionManager extends EventEmitter {
    * 세션 종료
    */
   closeSession(userId: string): void {
-    const process = this.activeProcesses.get(userId);
-    if (process) {
-      process.kill('SIGTERM');
+    const processInfo = this.activeProcesses.get(userId);
+    if (processInfo) {
+      if (processInfo.timeout) clearTimeout(processInfo.timeout);
+      if (processInfo.waitInterval) clearInterval(processInfo.waitInterval);
+      processInfo.process.kill('SIGTERM');
       this.activeProcesses.delete(userId);
     }
   }
@@ -217,8 +264,10 @@ export class ClaudeSessionManager extends EventEmitter {
    * 모든 세션 종료
    */
   closeAllSessions(): void {
-    for (const [userId, process] of this.activeProcesses) {
-      process.kill('SIGTERM');
+    for (const [userId, processInfo] of this.activeProcesses) {
+      if (processInfo.timeout) clearTimeout(processInfo.timeout);
+      if (processInfo.waitInterval) clearInterval(processInfo.waitInterval);
+      processInfo.process.kill('SIGTERM');
     }
     this.activeProcesses.clear();
   }
