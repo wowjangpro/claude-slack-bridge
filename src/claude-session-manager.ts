@@ -102,6 +102,17 @@ export class ClaudeSessionManager extends EventEmitter {
           const json = JSON.parse(line);
           console.log(`[JSON 수신] Type: ${json.type}, Subtype: ${json.subtype || 'N/A'}`);
 
+          // system 메시지 처리 (세션 초기화 정보)
+          if (json.type === 'system' && json.subtype === 'init') {
+            const sessionInfo = `🔵 세션 시작\n` +
+              `• 세션 ID: ${json.session_id?.substring(0, 8)}...\n` +
+              `• 모델: ${json.model}\n` +
+              `• 작업 디렉토리: ${json.cwd}`;
+            this.emit('stream', userId, sessionInfo);
+            // 응답이 시작되었으므로 대기 시간 초기화
+            waitCount = 0;
+          }
+
           // assistant 메시지 처리
           if (json.type === 'assistant' && json.message?.content) {
             for (const content of json.message.content) {
@@ -109,9 +120,15 @@ export class ClaudeSessionManager extends EventEmitter {
                 console.log(`[스트리밍 텍스트] ${content.text.substring(0, 100)}...`);
                 streamedTexts.push(content.text);
                 this.emit('stream', userId, content.text);
+                // 응답을 받았으므로 대기 시간 초기화
+                waitCount = 0;
               } else if (content.type === 'tool_use') {
                 console.log(`[도구 사용] ${content.name}`);
-                this.emit('tool_use', userId, content.name, content.input);
+                const toolInfo = `🔧 도구 사용: ${content.name}\n` +
+                  `입력: ${JSON.stringify(content.input, null, 2).substring(0, 200)}...`;
+                this.emit('tool_use', userId, content.name, toolInfo);
+                // 응답을 받았으므로 대기 시간 초기화
+                waitCount = 0;
               }
             }
           }

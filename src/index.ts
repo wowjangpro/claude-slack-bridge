@@ -93,14 +93,14 @@ claudeManager.on('stream', async (channelId: string, text: string) => {
 });
 
 // Claude 도구 사용 알림을 Slack으로 전달
-claudeManager.on('tool_use', async (channelId: string, toolName: string, toolInput: any) => {
+claudeManager.on('tool_use', async (channelId: string, toolName: string, toolInfo: string) => {
   console.log(`[도구 사용] Channel ${channelId}: ${toolName}`);
 
   try {
     await app.client.chat.postMessage({
       token: process.env.SLACK_BOT_TOKEN,
       channel: channelId,
-      text: `🔧 도구 사용중: ${toolName}`
+      text: toolInfo
     });
   } catch (error) {
     console.error('[Slack 전송 오류]:', error);
@@ -175,4 +175,19 @@ process.on('SIGTERM', () => {
   await app.start();
   console.log('⚡️ Claude-Slack Bridge 서버가 실행 중입니다!');
   console.log(`활성 세션: ${claudeManager.getActiveSessionCount()}`);
+
+  // 서버 시작 알림 전송 (NOTIFICATION_CHANNEL_ID가 설정된 경우)
+  const notificationChannelId = process.env.NOTIFICATION_CHANNEL_ID;
+  if (notificationChannelId) {
+    try {
+      await app.client.chat.postMessage({
+        token: process.env.SLACK_BOT_TOKEN,
+        channel: notificationChannelId,
+        text: `✅ Claude-Slack Bridge 서버가 시작되었습니다!\n• 활성 세션: ${claudeManager.getActiveSessionCount()}\n• 작업 디렉토리: ${process.env.WORKSPACE_DIR || process.cwd()}`
+      });
+      console.log(`[알림 전송] Channel ${notificationChannelId}에 서버 시작 메시지 전송 완료`);
+    } catch (error) {
+      console.error('[알림 전송 오류]:', error);
+    }
+  }
 })();
