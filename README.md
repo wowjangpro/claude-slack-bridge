@@ -140,6 +140,10 @@ ALLOWED_USER_IDS=U12345ABC,D67890XYZ
 
 # Workspace 설정
 WORKSPACE_DIR=/path/to/your/workspace
+
+# Claude CLI 경로 (선택사항, 기본값: claude)
+# 시스템 PATH에 없는 경우 전체 경로 지정
+# CLAUDE_PATH=/usr/local/bin/claude
 ```
 
 ## 실행

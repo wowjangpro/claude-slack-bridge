@@ -17,7 +17,7 @@ export class ClaudeSessionManager extends EventEmitter {
 
   constructor(
     private workspaceDir: string = process.cwd(),
-    private claudePath: string = '/Users/jeniel/.local/share/mise/installs/node/24.8.0/bin/claude'
+    private claudePath: string = process.env.CLAUDE_PATH || 'claude'
   ) {
     super();
   }
