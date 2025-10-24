@@ -4,6 +4,15 @@ Slack과 Claude Code CLI를 연결하는 Electron 데스크톱 애플리케이�
 
 ![Claude Slack Bridge](build/icon.png)
 
+## 다운로드
+
+[![Download DMG](https://img.shields.io/badge/Download-DMG-blue?style=for-the-badge&logo=apple)](https://github.com/wowjangpro/claude-slack-bridge/releases/latest/download/Claude%20Slack%20Bridge-2.0.0-arm64.dmg)
+[![Download ZIP](https://img.shields.io/badge/Download-ZIP-green?style=for-the-badge&logo=apple)](https://github.com/wowjangpro/claude-slack-bridge/releases/latest/download/Claude%20Slack%20Bridge-2.0.0-arm64-mac.zip)
+
+**최신 버전**: v2.0.0 (macOS Apple Silicon용)
+
+> **참고**: 현재 macOS Apple Silicon (M1/M2/M3)만 지원합니다. Intel Mac 및 Windows/Linux 버전은 추후 제공 예정입니다.
+
 ## 주요 기능
 
 - **Electron GUI**: 사용자 친화적인 데스크톱 애플리케이션
@@ -46,9 +55,17 @@ claude --version
 claude login
 ```
 
-### 2. 앱 다운로드
+### 2. 앱 설치
 
-#### 직접 빌드하기
+#### 다운로드 (권장)
+
+위의 다운로드 링크에서 DMG 파일을 받아 설치하세요.
+
+1. DMG 파일 다운로드 및 실행
+2. 애플리케이션을 Applications 폴더로 드래그
+3. 앱 실행
+
+#### 직접 빌드하기 (개발자용)
 
 ```bash
 git clone https://github.com/wowjangpro/claude-slack-bridge.git
