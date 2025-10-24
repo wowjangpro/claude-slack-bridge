@@ -7,7 +7,9 @@ node_modules/
 
 # 빌드 결과물
 dist/
-build/
+dist-electron/
+dist-vite/
+release/
 
 # 로그
 *.log
@@ -30,16 +32,15 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Claude 설정
+# AI 도구
+.bmad-core/
 .claude/
+.cursor/
+.gemini/
 
 # 임시 파일
 *.tmp
 *.temp
 
-.bmad-core/
-.claude/
-.cursor/
-.gemini/
-.vscode/
-.idea/
+# 개발 문서
+RESET_CONFIG.md
